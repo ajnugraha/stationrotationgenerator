@@ -3,9 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Station Rotation Planner V2</title>
+    <title>AI Station Rotation Planner</title>
+    
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Konfigurasi Tailwind untuk Font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -45,7 +65,7 @@
                         <i data-lucide="shuffle" class="w-8 h-8 text-white"></i>
                     </div>
                     <div>
-                        <h1 class="text-2xl font-bold tracking-tight">Station Rotation Planner V2</h1>
+                        <h1 class="text-2xl font-bold tracking-tight">AI Station Rotation Planner</h1>
                         <p class="text-indigo-100 text-sm mt-1">Hasilkan desain pembelajaran berbasis stasiun dengan hitungan presisi</p>
                     </div>
                 </div>
@@ -78,12 +98,25 @@
                 
                 <div class="space-y-4">
                     <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">API Key</label>
                         <div class="relative">
                             <i data-lucide="lock" class="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
                             <input type="password" id="input-apikey" placeholder="Masukkan API Key (Opsional)..." class="w-full rounded-xl border border-slate-300 pl-10 pr-4 py-3 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all">
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Model AI</label>
+                        <div class="relative">
+                            <i data-lucide="cpu" class="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <select id="input-model" class="w-full rounded-xl border border-slate-300 pl-10 pr-4 py-3 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all appearance-none bg-white">
+                                <option value="gemini-2.5-flash-preview-09-2025">gemini-2.5-flash-preview-09-2025 (Bawaan Sistem)</option>
+                                <option value="gemini-2.5-flash">gemini-2.5-flash (Gunakan ini untuk API Key Pribadi)</option>
+                                <option value="gemini-1.5-flash">gemini-1.5-flash (Alternatif API Pribadi)</option>
+                            </select>
+                        </div>
                         <p class="text-xs text-slate-500 mt-3 leading-relaxed">
-                            Anda dapat memasukkan API Key milik Anda sendiri. Dapatkan gratis di <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline font-medium">Google AI Studio</a>.
+                            Jika menggunakan API Key pribadi secara lokal, ubah model ke <strong>gemini-2.5-flash</strong>. Model "preview" hanya berlaku jika API Key dikosongkan (menggunakan kuota sistem web ini). Dapatkan API Key di <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline font-medium">Google AI Studio</a>.
                         </p>
                     </div>
                     
@@ -178,9 +211,9 @@
                 <!-- Error State -->
                 <div id="view-error" class="hidden bg-red-50 border border-red-200 rounded-2xl p-6 mb-6 flex items-start gap-4 print:hidden">
                     <i data-lucide="alert-circle" class="w-6 h-6 text-red-500 shrink-0 mt-0.5"></i>
-                    <div>
+                    <div class="flex-1">
                         <h3 class="text-red-800 font-semibold mb-1">Terjadi Kesalahan</h3>
-                        <p id="error-message" class="text-red-600 text-sm"></p>
+                        <p id="error-message" class="text-red-600 text-sm leading-relaxed"></p>
                     </div>
                 </div>
 
@@ -208,6 +241,11 @@
             </div>
         </div>
     </main>
+
+    <!-- Footer -->
+    <footer class="max-w-6xl mx-auto px-4 pb-8 text-center text-sm text-slate-500 print:hidden">
+        @2026 Pengembang <a href="https://agungjnugraha.github.io/portofolio" title="ajnugraha apps" target="_blank" class="text-indigo-600 hover:text-indigo-800 hover:underline transition-colors font-medium">AJ Nugraha</a>.
+    </footer>
 
     <script>
         // Inisialisasi ikon Lucide pertama kali
@@ -241,7 +279,6 @@
         }
 
         window.saveApiModal = function() {
-            // Animasi tombol bisa ditambahkan disini jika mau
             closeApiModal();
         }
 
@@ -270,13 +307,11 @@
         // Fungsi Memanggil API AI Gemini
         async function generateContent(prompt, retryCount = 0) {
             let apiKey = document.getElementById('input-apikey').value.trim();
-            let modelName = "gemini-2.5-flash-preview-09-2025"; // Model bawaan environment
+            let modelName = document.getElementById('input-model').value; 
             
-            if (apiKey) {
-                // Jika user menggunakan API Key sendiri, gunakan model publik yang pasti tersedia
-                modelName = "gemini-1.5-flash";
-            } else {
-                apiKey = ""; // Disuntikkan oleh environment jika input kosong
+            if (!apiKey) {
+                apiKey = ""; // Environment bawaan platform
+                modelName = "gemini-2.5-flash-preview-09-2025"; // Sistem ini mewajibkan model preview jika tanpa key
             }
 
             const delays = [1000, 2000, 4000, 8000, 16000];
@@ -299,15 +334,11 @@
                                         items: {
                                             type: "OBJECT",
                                             properties: {
-                                                nama_stasiun: { type: "STRING", description: "Format: [Jenis] - [Nama Topik Stasiun], misal: Eksplorasi Materi Digital" },
-                                                media: { type: "STRING", description: "Perangkat, buku, lembar kerja, atau link url" },
-                                                aktivitas: { type: "ARRAY", items: { type: "STRING" }, description: "Daftar poin kegiatan murid" },
-                                                output: { type: "STRING", description: "Hasil atau tagihan produk siswa di stasiun ini" },
-                                                instrumen_asesmen: { 
-                                                    type: "ARRAY", 
-                                                    items: { type: "STRING" }, 
-                                                    description: "Daftar pertanyaan atau poin tugas untuk lembar kerja/asesmen di stasiun ini" 
-                                                }
+                                                nama_stasiun: { type: "STRING", description: "Format: [Jenis] - [Nama Topik Stasiun]" },
+                                                media: { type: "STRING" },
+                                                aktivitas: { type: "ARRAY", items: { type: "STRING" } },
+                                                output: { type: "STRING" },
+                                                instrumen_asesmen: { type: "ARRAY", items: { type: "STRING" } }
                                             }
                                         }
                                     }
@@ -319,8 +350,14 @@
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    const errorMessage = errorData?.error?.message || `Error HTTP ${response.status}: Gagal terhubung ke server AI.`;
-                    const err = new Error(errorMessage);
+                    
+                    // Deteksi Error 401 Spesifik
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error(`Error ${response.status} (Unauthorized): API Key tidak valid atau kosong. Jika Anda menjalankan aplikasi ini di komputer lokal Anda, Anda WAJIB memasukkan API Key Anda sendiri di menu "Pengaturan API" di sudut kanan atas.`);
+                    }
+
+                    const errMsg = errorData?.error?.message || `Error HTTP ${response.status}: Gagal terhubung ke server AI.`;
+                    const err = new Error(errMsg);
                     err.status = response.status;
                     throw err;
                 }
@@ -328,14 +365,15 @@
                 const data = await response.json();
                 const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
                 
-                if (!text) throw new Error("Respons AI kosong atau diblokir sistem keamanan.");
+                if (!text) throw new Error("Respons AI kosong.");
                 
                 const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                 return JSON.parse(cleanText);
                 
             } catch (err) {
-                // Jangan retry jika error disebabkan oleh request yang salah (400) atau API Key Invalid (403)
+                // Jangan retry jika error disebabkan oleh request yang salah (400) atau API Key Invalid (401/403)
                 if (err.status >= 400 && err.status < 500) throw err;
+                if (err.message.includes("401") || err.message.includes("403")) throw err;
                 
                 if (retryCount < delays.length) {
                     await new Promise(resolve => setTimeout(resolve, delays[retryCount]));
