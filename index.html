@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Station Rotation Planner Generator</title>
+    <title>AI Station Rotation Planner</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -45,8 +45,8 @@
                         <i data-lucide="shuffle" class="w-8 h-8 text-white"></i>
                     </div>
                     <div>
-                        <h1 class="text-2xl font-bold tracking-tight">Station Rotation Planner Generator</h1>
-                        <p class="text-indigo-100 text-sm mt-1">Hasilkan desain pembelajaran dengan model pembelajaran stasiun rotasi dengan hitungan presisi. <i>Untuk hasil terbaik gunakan API Key!</i></p>
+                        <h1 class="text-2xl font-bold tracking-tight">AI Station Rotation Planner</h1>
+                        <p class="text-indigo-100 text-sm mt-1">Hasilkan desain pembelajaran berbasis stasiun dengan hitungan presisi</p>
                     </div>
                 </div>
                 <!-- Tombol Buka Modal API -->
@@ -270,14 +270,19 @@
         // Fungsi Memanggil API AI Gemini
         async function generateContent(prompt, retryCount = 0) {
             let apiKey = document.getElementById('input-apikey').value.trim();
-            if (!apiKey) {
+            let modelName = "gemini-2.5-flash-preview-09-2025"; // Model bawaan environment
+            
+            if (apiKey) {
+                // Jika user menggunakan API Key sendiri, gunakan model publik yang pasti tersedia
+                modelName = "gemini-1.5-flash";
+            } else {
                 apiKey = ""; // Disuntikkan oleh environment jika input kosong
             }
 
             const delays = [1000, 2000, 4000, 8000, 16000];
             
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -297,7 +302,12 @@
                                                 nama_stasiun: { type: "STRING", description: "Format: [Jenis] - [Nama Topik Stasiun], misal: Eksplorasi Materi Digital" },
                                                 media: { type: "STRING", description: "Perangkat, buku, lembar kerja, atau link url" },
                                                 aktivitas: { type: "ARRAY", items: { type: "STRING" }, description: "Daftar poin kegiatan murid" },
-                                                output: { type: "STRING", description: "Hasil atau tagihan produk siswa di stasiun ini" }
+                                                output: { type: "STRING", description: "Hasil atau tagihan produk siswa di stasiun ini" },
+                                                instrumen_asesmen: { 
+                                                    type: "ARRAY", 
+                                                    items: { type: "STRING" }, 
+                                                    description: "Daftar pertanyaan atau poin tugas untuk lembar kerja/asesmen di stasiun ini" 
+                                                }
                                             }
                                         }
                                     }
@@ -309,7 +319,8 @@
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    const err = new Error(errorData?.error?.message || "Gagal terhubung ke AI. Coba lagi.");
+                    const errorMessage = errorData?.error?.message || `Error HTTP ${response.status}: Gagal terhubung ke server AI.`;
+                    const err = new Error(errorMessage);
                     err.status = response.status;
                     throw err;
                 }
@@ -317,13 +328,15 @@
                 const data = await response.json();
                 const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
                 
-                if (!text) throw new Error("Respons AI kosong.");
+                if (!text) throw new Error("Respons AI kosong atau diblokir sistem keamanan.");
                 
                 const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                 return JSON.parse(cleanText);
                 
             } catch (err) {
+                // Jangan retry jika error disebabkan oleh request yang salah (400) atau API Key Invalid (403)
                 if (err.status >= 400 && err.status < 500) throw err;
+                
                 if (retryCount < delays.length) {
                     await new Promise(resolve => setTimeout(resolve, delays[retryCount]));
                     return generateContent(prompt, retryCount + 1);
@@ -349,7 +362,15 @@
                 station.aktivitas.forEach(act => {
                     textToCopy += `- ${act}\n`;
                 });
-                textToCopy += `Output:\n${station.output}\n\n`;
+                textToCopy += `Output:\n${station.output}\n`;
+                
+                if (station.instrumen_asesmen && station.instrumen_asesmen.length > 0) {
+                    textToCopy += `Instrumen Asesmen / Lembar Kerja:\n`;
+                    station.instrumen_asesmen.forEach(item => {
+                        textToCopy += `- ${item}\n`;
+                    });
+                }
+                textToCopy += `\n`;
             });
 
             const textArea = document.createElement("textarea");
@@ -440,6 +461,22 @@
                 
                 let actsHtml = '';
                 station.aktivitas.forEach(act => { actsHtml += `<li>${act}</li>`; });
+                
+                let asesmenHtml = '';
+                if (station.instrumen_asesmen && station.instrumen_asesmen.length > 0) {
+                    station.instrumen_asesmen.forEach(item => { asesmenHtml += `<li>${item}</li>`; });
+                    asesmenHtml = `
+                        <div class="text-sm text-slate-700 print:text-black pt-3 mt-3 border-t border-slate-100 print:border-black print:border-dashed">
+                            <span class="font-semibold block mb-1 text-indigo-700 print:text-black">
+                                <i data-lucide="clipboard-list" class="w-4 h-4 inline-block mr-1 -mt-0.5 print:hidden"></i>
+                                Instrumen Asesmen / Lembar Kerja:
+                            </span>
+                            <ul class="list-decimal pl-5 space-y-1">
+                                ${asesmenHtml}
+                            </ul>
+                        </div>
+                    `;
+                }
 
                 html += `
                     <div class="relative flex gap-4 print:break-inside-avoid">
@@ -478,6 +515,8 @@
                                     <span class="font-semibold">Output:</span>
                                     <p class="mt-1">${station.output}</p>
                                 </div>
+                                
+                                ${asesmenHtml}
                             </div>
                         </div>
                     </div>
@@ -586,6 +625,7 @@
                     3. Stasiun lainnya harus bervariasi.
                     4. Sesuaikan bahasa instruksi, kedalaman materi, dan kompleksitas tugas agar tepat sasaran untuk Fase ${fase}.
                     5. Susun Aktivitas berupa array langkah-langkah yang berurutan.
+                    6. WAJIB sertakan "Instrumen Asesmen / Lembar Kerja" yang berisi 2-3 pertanyaan atau tugas spesifik untuk mengukur pemahaman siswa di setiap stasiun.
                 `;
 
                 aiResult = await generateContent(prompt);
